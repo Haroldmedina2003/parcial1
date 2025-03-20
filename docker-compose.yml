@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v2.10
+    restart: always
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "./traefik/traefik.yml:/etc/traefik/traefik.yml"
+    networks:
+      - etl_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminnicolas12
+      POSTGRES_DB: mi_basedatos
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+    networks:
+      - etl_network
+
+  neo4j:
+    image: neo4j:5.10
+    restart: always
+    environment:
+      - NEO4J_AUTH=neo4j/adminnicolas12  # ✅ Contraseña corregida (mínimo 8 caracteres)
+      - NEO4J_dbms_memory_heap_initial__size=512m
+      - NEO4J_dbms_memory_heap_max__size=1G
+      - NEO4J_dbms_memory_pagecache_size=512m
+      - NEO4J_dbms_connector_bolt_listen__address=0.0.0.0:7687
+      - NEO4J_dbms_connector_http_listen__address=0.0.0.0:7474
+    volumes:
+      - ./neo4j/data:/data
+      - ./neo4j/logs:/logs
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    networks:
+      - etl_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.neo4j.rule=Host(`neo4j.localhost`)"
+      - "traefik.http.services.neo4j.loadbalancer.server.port=7474"
+
+  api:
+    build: ./api
+    restart: always
+    depends_on:
+      - postgres
+      - neo4j
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.localhost`)"
+      - "traefik.http.services.api.loadbalancer.server.port=5000"
+    networks:
+      - etl_network
+
+networks:
+  etl_network:
+    driver: bridge

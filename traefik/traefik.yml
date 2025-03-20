@@ -1,0 +1,15 @@
+entryPoints:
+  web:
+    address: ":80"
+
+  traefik:  # 🚀 Agregar este entrypoint para el dashboard
+    address: ":8080"
+
+providers:
+  docker:
+    exposedByDefault: false
+
+api:
+  dashboard: true
+  insecure: true  # 🚀 Habilita el acceso sin TLS (solo para pruebas)
+
